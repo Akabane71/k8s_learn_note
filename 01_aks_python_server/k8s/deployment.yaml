@@ -1,0 +1,28 @@
+apiVersion: apps/v1          # 使用的 Kubernetes API 版本，apps/v1 管理 Deployment（稳定版）
+kind: Deployment             # 声明这是一个 Deployment（部署控制器）
+
+metadata:
+  name: aks-python-server    # Deployment 的名字，kubectl 管理时会用到
+
+spec:                        # Deployment 的配置规范（specification）
+  replicas: 1                # 副本数量：部署 1 个 Pod（可以改成 2、3）
+
+  selector:                  # 选择器，用来匹配要管理的 Pod
+    matchLabels:
+      app: aks-python-server # 匹配标签 app=aks-python-server 的 Pod 才受此 Deployment 管理
+
+  template:                  # Pod 模板，Deployment 会根据模板创建 Pod
+    metadata:
+      labels:
+        app: aks-python-server  # 为 Pod 添加标签（必须与 selector 保持一致）
+
+    spec:                     # Pod 的配置
+      containers:             # Pod 内运行的容器列表（可以多个容器）
+        - name: aks-python-server                 # 容器名
+          image: lishuncontainer.azurecr.io/01_aks_python_server:0.1   # 使用的镜像（存于 ACR）
+          ports:
+            - containerPort: 80                   # 容器对外暴露的端口，应用程序监听的端口
+
+
+
+

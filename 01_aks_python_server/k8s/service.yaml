@@ -1,0 +1,15 @@
+apiVersion: v1                    # Kubernetes 核心 API 版本
+kind: Service                     # 声明这是一个 Service 资源（网络对外暴露）
+
+metadata:
+  name: python-api-service        # Service 名称，通过 kubectl 管理时用到
+
+spec:
+  type: LoadBalancer              # Service 类型：创建云负载均衡器，提供公网 IP（AKS特有）
+
+  selector:
+    app: aks-python-server       # 选择器，匹配标签 app=aks-python-server 的 Pod
+  ports:
+    - port: 8000                    # Service 暴露给外部访问的端口（公网访问）
+      targetPort: 80              # Pod 容器内部监听的端口（与 containerPort 对应）
+      protocol: TCP
