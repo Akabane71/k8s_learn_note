@@ -3,8 +3,8 @@ name: Build 01_aks_python_server Docker Image and Push to ACR
 on:
   push:
     branches: ["main"]
-    paths:
-      - "01_aks_python_server/**"   # 只要这个目录有变动才触发
+    # paths:
+    #   - "01_aks_python_server/**"   # 只要这个目录有变动才触发
 
 jobs:
   build-and-push:
