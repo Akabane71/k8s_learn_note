@@ -22,9 +22,10 @@ jobs:
       - name: Azure Container Registry Login
         uses: azure/docker-login@v2
         with:
-          login-server: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}    # 例如 lishuncontainer.azurecr.io
-          username: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
-          password: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+            login-server: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}
+            username: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+            password: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
