@@ -1,0 +1,43 @@
+name: Build 01_aks_python_server Docker Image and Push to ACR (Shell Version)
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        run: |
+          git checkout ${{ github.ref }}
+
+      - name: Azure Login
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          echo "${AZURE_CREDENTIALS}" > creds.json
+          AZURE_CLIENT_ID=$(jq -r .clientId creds.json)
+          AZURE_CLIENT_SECRET=$(jq -r .clientSecret creds.json)
+          AZURE_TENANT_ID=$(jq -r .tenantId creds.json)
+          az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"
+
+      - name: Azure Container Registry Login
+        env:
+          AZURE_ACR_LOGIN_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+        run: |
+          AZURE_CLIENT_ID=$(jq -r .clientId <<< "${AZURE_CREDENTIALS}")
+          AZURE_CLIENT_SECRET=$(jq -r .clientSecret <<< "${AZURE_CREDENTIALS}")
+          echo "$AZURE_CLIENT_SECRET" | docker login $AZURE_ACR_LOGIN_SERVER -u $AZURE_CLIENT_ID --password-stdin
+
+      - name: Build and Push Docker Image
+        env:
+          AZURE_ACR_LOGIN_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}
+        run: |
+          docker build -t $AZURE_ACR_LOGIN_SERVER/01_aks_python_server:latest \
+                       -t $AZURE_ACR_LOGIN_SERVER/01_aks_python_server:${{ github.sha }} \
+                       -f ./01_aks_python_server/docker/Dockerfile ./01_aks_python_server
+          docker push $AZURE_ACR_LOGIN_SERVER/01_aks_python_server:latest
+          docker push $AZURE_ACR_LOGIN_SERVER/01_aks_python_server:${{ github.sha }}
