@@ -1,43 +1,75 @@
-name: Build 01_aks_python_server Docker Image and Push to ACR (Shell Version)
+name: Build 01_aks_python_server Docker Image and Push to ACR
 
 on:
   push:
     branches: ["main"]
+    # paths:
+    #   - "01_aks_python_server/**"
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
+    # 把常用的变量提前放到 env，下面 shell 里直接用
+    env:
+      LOGIN_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}
+      AZ_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+      AZ_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+      AZ_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
+
     steps:
+      # 1. 拉取当前仓库代码（这一步用官方 action 就很好）
       - name: Checkout code
-        run: |
-          git checkout ${{ github.ref }}
+        uses: actions/checkout@v4
 
-      - name: Azure Login
-        env:
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+      # 2. 用服务主体登录 Azure（等价于 azure/login@v2 做的事）
+      - name: Azure CLI Login (Service Principal)
+        shell: bash
         run: |
-          echo "${AZURE_CREDENTIALS}" > creds.json
-          AZURE_CLIENT_ID=$(jq -r .clientId creds.json)
-          AZURE_CLIENT_SECRET=$(jq -r .clientSecret creds.json)
-          AZURE_TENANT_ID=$(jq -r .tenantId creds.json)
-          az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"
+          echo "Logging in to Azure with service principal..."
+          az login --service-principal \
+            --username "$AZ_CLIENT_ID" \
+            --password "$AZ_CLIENT_SECRET" \
+            --tenant "$AZ_TENANT_ID"
 
-      - name: Azure Container Registry Login
-        env:
-          AZURE_ACR_LOGIN_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
-        run: |
-          AZURE_CLIENT_ID=$(jq -r .clientId <<< "${AZURE_CREDENTIALS}")
-          AZURE_CLIENT_SECRET=$(jq -r .clientSecret <<< "${AZURE_CREDENTIALS}")
-          echo "$AZURE_CLIENT_SECRET" | docker login $AZURE_ACR_LOGIN_SERVER -u $AZURE_CLIENT_ID --password-stdin
+          echo "Showing current Azure account:"
+          az account show
 
-      - name: Build and Push Docker Image
-        env:
-          AZURE_ACR_LOGIN_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}
+      # 3. 登录 ACR（等价于 azure/docker-login@v2）
+      - name: Docker login to Azure Container Registry
+        shell: bash
         run: |
-          docker build -t $AZURE_ACR_LOGIN_SERVER/01_aks_python_server:latest \
-                       -t $AZURE_ACR_LOGIN_SERVER/01_aks_python_server:${{ github.sha }} \
-                       -f ./01_aks_python_server/docker/Dockerfile ./01_aks_python_server
-          docker push $AZURE_ACR_LOGIN_SERVER/01_aks_python_server:latest
-          docker push $AZURE_ACR_LOGIN_SERVER/01_aks_python_server:${{ github.sha }}
+          echo "Logging in to ACR: $LOGIN_SERVER"
+          # 这里直接用 service principal 当 docker 用户/密码
+          echo "$AZ_CLIENT_SECRET" | docker login "$LOGIN_SERVER" \
+            --username "$AZ_CLIENT_ID" \
+            --password-stdin
+
+      # 4. 构建镜像（等价于 docker/build-push-action 的 build 部分）
+      - name: Build Docker image
+        shell: bash
+        run: |
+          IMAGE_NAME=01_aks_python_server
+
+          echo "Building Docker image..."
+          docker build \
+            -f ./01_aks_python_server/docker/Dockerfile \
+            -t "$LOGIN_SERVER/$IMAGE_NAME:latest" \
+            -t "$LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}" \
+            ./01_aks_python_server
+
+          echo "Built images:"
+          docker images "$LOGIN_SERVER/$IMAGE_NAME"
+
+      # 5. 推送镜像到 ACR（等价于 docker/build-push-action 的 push 部分）
+      - name: Push Docker image
+        shell: bash
+        run: |
+          IMAGE_NAME=01_aks_python_server
+
+          echo "Pushing tags:"
+          echo "  $LOGIN_SERVER/$IMAGE_NAME:latest"
+          echo "  $LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}"
+
+          docker push "$LOGIN_SERVER/$IMAGE_NAME:latest"
+          docker push "$LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}"
