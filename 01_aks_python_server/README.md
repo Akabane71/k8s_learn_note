@@ -104,6 +104,6 @@ kubectl describe service python-api-service
 
 ## 5. 配置证书和域名
 > 如何在 aks 中配置证书和相关的域名？
-> 我们继续操作学习
+> 我们继续学习如何操作
 
 

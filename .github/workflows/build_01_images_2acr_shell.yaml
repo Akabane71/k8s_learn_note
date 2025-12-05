@@ -54,7 +54,6 @@ jobs:
           docker build \
             -f ./01_aks_python_server/docker/Dockerfile \
             -t "$LOGIN_SERVER/$IMAGE_NAME:latest" \
-            # -t "$LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}" \
             ./01_aks_python_server
 
           echo "Built images:"
@@ -68,7 +67,4 @@ jobs:
 
           echo "Pushing tags:"
           echo "  $LOGIN_SERVER/$IMAGE_NAME:latest"
-          # echo "  $LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}"
-
           docker push "$LOGIN_SERVER/$IMAGE_NAME:latest"
-          # docker push "$LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}"
