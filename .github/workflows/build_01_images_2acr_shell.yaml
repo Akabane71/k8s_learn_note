@@ -3,24 +3,29 @@ name: Build 01_aks_python_server Docker Image and Push to ACR
 on:
   push:
     branches: ["main"]
-  workflow_dispatch:
+    paths:
+      - "01_aks_python_server/**"
+  workflow_dispatch: 
+
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
 
+    # 把常用的变量提前放到 env，下面 shell 里直接用
     env:
       LOGIN_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}
-      AZ_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZ_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZ_CLIENT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+      AZ_CLIENT_SECRET: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
+      AZ_TENANT_ID: ${{ fromJson(secrets.AZURE_CREDENTIALS).tenantId }}
 
     steps:
+      # 1. 拉取当前仓库代码（这一步用官方 action 就很好）
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2. 用服务主体登录 Azure（等价于 azure/login@v2 做的事）
       - name: Azure CLI Login (Service Principal)
-        env:
-          AZ_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         shell: bash
         run: |
           echo "Logging in to Azure with service principal..."
@@ -29,32 +34,41 @@ jobs:
             --password "$AZ_CLIENT_SECRET" \
             --tenant "$AZ_TENANT_ID"
 
+      # 3. 登录 ACR（等价于 azure/docker-login@v2）
       - name: Docker login to Azure Container Registry
-        env:
-          AZ_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         shell: bash
         run: |
           echo "Logging in to ACR: $LOGIN_SERVER"
+          # 这里直接用 service principal 当 docker 用户/密码
           echo "$AZ_CLIENT_SECRET" | docker login "$LOGIN_SERVER" \
             --username "$AZ_CLIENT_ID" \
             --password-stdin
 
+      # 4. 构建镜像（等价于 docker/build-push-action 的 build 部分）
       - name: Build Docker image
         shell: bash
         run: |
           IMAGE_NAME=01_aks_python_server
+
           echo "Building Docker image..."
           docker build \
             -f ./01_aks_python_server/docker/Dockerfile \
             -t "$LOGIN_SERVER/$IMAGE_NAME:latest" \
+            # -t "$LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}" \
             ./01_aks_python_server
+
           echo "Built images:"
           docker images "$LOGIN_SERVER/$IMAGE_NAME"
 
+      # 5. 推送镜像到 ACR（等价于 docker/build-push-action 的 push 部分）
       - name: Push Docker image
         shell: bash
         run: |
           IMAGE_NAME=01_aks_python_server
+
           echo "Pushing tags:"
           echo "  $LOGIN_SERVER/$IMAGE_NAME:latest"
+          # echo "  $LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}"
+
           docker push "$LOGIN_SERVER/$IMAGE_NAME:latest"
+          # docker push "$LOGIN_SERVER/$IMAGE_NAME:${GITHUB_SHA}"
