@@ -23,12 +23,12 @@ app.add_middleware(
 # 3. 数据库/文件系统 连接
 @app.lifespan("startup")
 async def startup_event():
-    # 初始化数据库连接
+    # 初始化数据库/文件系统 连接
     pass
 
 @app.lifespan("shutdown")
 async def shutdown_event():
-    # 关闭数据库连接
+    # 关闭数据库/文件系统 连接
     pass
 
 
